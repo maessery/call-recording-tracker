@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Call Recordings — Atlas Equity</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f8f7f4; --surface: #ffffff;
+    --border: rgba(0,0,0,0.1); --border-strong: rgba(0,0,0,0.2);
+    --text: #1a1a1a; --text-muted: #6b6b6b; --text-faint: #999;
+    --green: #1D9E75; --green-bg: #E1F5EE;
+    --amber: #BA7517; --amber-bg: #FAEEDA;
+    --blue: #185FA5; --red: #c0392b;
+    --radius: 12px; --radius-sm: 8px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141414; --surface: #1e1e1e;
+      --border: rgba(255,255,255,0.1); --border-strong: rgba(255,255,255,0.2);
+      --text: #e8e8e8; --text-muted: #999; --text-faint: #666;
+      --green: #5DCAA5; --green-bg: #085041;
+      --amber: #FAC775; --amber-bg: #633806;
+      --blue: #85B7EB;
+    }
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; min-height: 100vh; padding-bottom: 4rem; }
+  #setup-banner { background: #fffbea; border-bottom: 1px solid #f0d060; padding: 14px 24px; display: flex; align-items: flex-start; gap: 12px; }
+  #setup-banner.hidden { display: none; }
+  .banner-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .banner-body { flex: 1; }
+  .banner-body strong { display: block; font-size: 13px; color: #7a5000; margin-bottom: 4px; }
+  .banner-body p { font-size: 12px; color: #8a6010; line-height: 1.5; }
+  .banner-input-row { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .banner-input-row input { flex: 1; min-width: 260px; font-size: 12px; padding: 6px 10px; border: 1px solid #d4a020; border-radius: 6px; background: white; color: #333; font-family: monospace; }
+  .banner-input-row button { font-size: 12px; padding: 6px 14px; border-radius: 6px; border: 1px solid #c08000; background: #f5c030; color: #5a3a00; cursor: pointer; font-weight: 500; }
+  .banner-input-row .dismiss-btn { background: transparent; border-color: #ccc; color: #888; }
+  #sync-status { font-size: 11px; color: var(--text-faint); padding: 6px 24px; min-height: 22px; }
+  #sync-status.ok { color: var(--green); }
+  #sync-status.err { color: var(--red); }
+  .top-bar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .top-bar h1 { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+  .top-bar .sub { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+  .stats { display: flex; gap: 20px; }
+  .stat { text-align: right; }
+  .stat .val { font-size: 18px; font-weight: 600; }
+  .stat .lbl { font-size: 11px; color: var(--text-muted); }
+  .progress-wrap { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px 14px; }
+  .progress-bar { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--green); border-radius: 2px; transition: width 0.4s ease; }
+  .filters { padding: 14px 24px 0; display: flex; gap: 6px; flex-wrap: wrap; }
+  .filter-btn { font-size: 12px; font-family: inherit; padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border-strong); background: transparent; color: var(--text-muted); cursor: pointer; transition: all 0.15s; }
+  .filter-btn:hover { background: var(--border); color: var(--text); }
+  .filter-btn.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .count-badge { display: inline-block; background: rgba(128,128,128,0.2); border-radius: 10px; padding: 1px 6px; font-size: 10px; margin-left: 4px; }
+  .filter-btn.active .count-badge { background: rgba(255,255,255,0.25); }
+  .cards { padding: 14px 24px 0; display: flex; flex-direction: column; gap: 8px; max-width: 760px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; transition: opacity 0.2s; }
+  .card.high-value { border-left: 3px solid var(--amber); }
+  .card.done { opacity: 0.5; }
+  .card-header { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; cursor: pointer; user-select: none; }
+  .card-header:hover { background: rgba(0,0,0,0.02); }
+  .check { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--border-strong); flex-shrink: 0; margin-top: 2px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; background: transparent; }
+  .check.done { background: var(--green); border-color: var(--green); }
+  .check.done::after { content: ''; display: block; width: 5px; height: 9px; border: 1.5px solid white; border-top: none; border-left: none; transform: rotate(45deg) translateY(-1px); }
+  .card-body { flex: 1; min-width: 0; }
+  .card-date { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .hv-pill { font-size: 10px; background: var(--amber-bg); color: var(--amber); padding: 2px 7px; border-radius: 10px; font-weight: 500; }
+  .card-note { font-size: 12px; color: var(--text-muted); margin-top: 3px; line-height: 1.4; }
+  .card-links { display: flex; align-items: center; gap: 10px; margin-top: 7px; flex-wrap: wrap; }
+  .open-link { font-size: 12px; color: var(--blue); text-decoration: none; font-weight: 500; }
+  .open-link:hover { text-decoration: underline; }
+  .pw { font-size: 11px; color: var(--text-faint); font-family: 'SF Mono','Menlo',monospace; background: var(--border); padding: 2px 6px; border-radius: 4px; }
+  .expand-arrow { color: var(--text-faint); font-size: 12px; flex-shrink: 0; margin-top: 4px; transition: transform 0.2s; }
+  .expand-arrow.open { transform: rotate(180deg); }
+  .notes-panel { border-top: 1px solid var(--border); padding: 12px 16px 14px 48px; background: var(--bg); }
+  .notes-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-faint); margin-bottom: 6px; }
+  textarea { width: 100%; min-height: 80px; font-size: 13px; font-family: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 10px; resize: vertical; outline: none; line-height: 1.6; transition: border-color 0.15s; }
+  textarea:focus { border-color: var(--border-strong); }
+  textarea::placeholder { color: var(--text-faint); }
+  .empty, .loading { padding: 40px 24px; color: var(--text-muted); font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div id="setup-banner">
+  <div class="banner-icon">⚙️</div>
+  <div class="banner-body">
+    <strong>Connect to Google Sheets for cross-device sync</strong>
+    <p>Paste your Apps Script Web App URL to enable sync across all your computers. Setup instructions are in the HTML comments at the bottom of this file — takes about 5 minutes.</p>
+    <div class="banner-input-row">
+      <input type="text" id="script-url-input" placeholder="https://script.google.com/macros/s/YOUR_ID/exec" />
+      <button onclick="saveScriptUrl()">Connect</button>
+      <button class="dismiss-btn" onclick="dismissBanner()">Use offline</button>
+    </div>
+  </div>
+</div>
+<div id="sync-status"></div>
+
+<div class="top-bar">
+  <div>
+    <h1>Call recordings — Atlas Equity</h1>
+    <div class="sub">Wholesaling live calls</div>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="val" id="stat-done">0</div><div class="lbl">reviewed</div></div>
+    <div class="stat"><div class="val" id="stat-total">0</div><div class="lbl">total</div></div>
+  </div>
+</div>
+<div class="progress-wrap">
+  <div class="progress-bar"><div class="progress-fill" id="prog" style="width:0%"></div></div>
+</div>
+<div class="filters" id="filters"></div>
+<div class="cards" id="cards"><div class="loading">Loading...</div></div>
+
+<script>
+const CALLS = [
+  {id:1,date:"12/12",label:"Live calls pt 1",note:"Got one seller on the phone, the rest is talking about different offer situations.",link:"https://us06web.zoom.us/rec/share/5pQMGCWWmoYOj2ybNsI1BRlq7NqjBLChbAtE3UQqhU25l27B5OxmRm9hhVJSk3uA.PSvC5-ROwuSSzidZ",pw:"D5.Pa7+",hv:false},
+  {id:2,date:"12/20",label:"Live calls pt 2",note:"Got 2 sellers under contract, connected with 3 total homeowners. Lots of action!",link:"https://drive.google.com/file/d/126_WSeg5FBn2rHXyYUx_Ra_XYxAsyhue/view?usp=drive_link",pw:"",hv:true},
+  {id:3,date:"12/30",label:"Live calls pt 3",note:"Talked to multiple sellers & got another verbal yes on a contract!",link:"https://us06web.zoom.us/rec/share/LdJf1tkbbpcOl4pmsPzFOf3FWlMmT2yI8m07TRMmEqztCcfpzxbNVvibD4L9H9x-.YGRTcyB-dnAEjUj6",pw:"38^Xb?.*",hv:true},
+  {id:4,date:"1/4",label:"Live calls pt 4",note:"Almost had another deal! Deep breakdown on subject-to & creative finance — lots of rebuttals. Great watch!",link:"https://us06web.zoom.us/rec/share/htHKRCwr_EDxgTTlSq2j2vtjkrGZozSpfAfuqRQ6tqKIRY5QTlAY9uxbGlZyQrGq.miIqSSQH15Hacv2c",pw:"VkfX$4#7",hv:true},
+  {id:5,date:"1/6",label:"Live calls pt 5",note:"Almost a done deal — seller needs more time. Follow up next week to lock him in.",link:"https://us06web.zoom.us/rec/share/P5Tc1CX5jUiHtFbWYGFrUUTu2HUbGe318rPQ4WI7P2jNUUbuw5O5VV_7gDK8FnJV.xsllD7iculg2AVeo",pw:"w6^kNqgq",hv:false},
+  {id:6,date:"1/13",label:"Live calls pt 6",note:"Discussed following up with active leads post-application. Secured verbal yes by answering great seller questions.",link:"https://us06web.zoom.us/rec/share/PY4EVsASrskgtQEeNWgkTcQSfmIvMuQbesPX0t3_hYkdEzB9IoORz_FOGLNOlA1f.oqJ9Zz--w7gI0apx",pw:"Qy$91%Rm",hv:true},
+  {id:7,date:"1/20",label:"Live calls pt 7",note:"Multiple sellers, quality conversations.",link:"https://us06web.zoom.us/rec/share/4_ue5jDfq7TnY8GZ-9rNcMmXMQzBe0z1gjyAzxhdw2VangouEOxkc8MV_udF6GYt.KKVp4KEcipIHEtyM",pw:"AyaWx#w8",hv:false},
+  {id:8,date:"1/24",label:"Live calls pt 8",note:"Detailed breakdowns: leads to convert post verbal yes, leads that went cold, leads needing new offers.",link:"https://us06web.zoom.us/rec/share/aByNs0uHZbJZwS2q-pnblkU-5JiZ8VcVvyBkByw1BnZWQf9yxqQ0_06aN8wfAvqG.2R0U__b4_xYThS05",pw:"4Bbdj!rH",hv:false},
+  {id:9,date:"2/10",label:"Live calls pt 11",note:"Negotiated one seller, left follow-up messages. Techniques for getting pre-qualified sellers to answer.",link:"https://us06web.zoom.us/rec/share/JMnqdGGPAznCEvKXw-iU1VKM_b9MRatnDjPB51lzCfEtt0PR-Z4LVhZGrA_K_bsd.O5aCAanCzTrPf4wM",pw:"sfFY7@2z",hv:false},
+  {id:10,date:"2/15",label:"Live calls pt 13",note:"'Dead' lead turned into potentially buying 17 houses from one seller.",link:"https://us06web.zoom.us/rec/share/61Uw7oBC4_4pOp-akfNIjwZtjOe74iQvmeUbyIF8unD-qwX0DZYCOLRJ8Mq3Oh3a.OyFrJvLITY_hC2N7",pw:"Y9ju.M=z",hv:true},
+  {id:11,date:"2/21",label:"Live calls pt 14",note:"One of the best calls so far — TWO verbal yeses. Well worth the watch!",link:"https://us06web.zoom.us/rec/share/E5qbb3Q0RkzwBTEYYlb3pkiVj_w2GGh6hp3ZX-ifZrUSUp24_7IQ_QqZKGmVIuiv.R90O9LlVVV4VFW4a",pw:"h%bt3#42",hv:true},
+  {id:12,date:"2/25",label:"Live calls pt 15",note:"Quality creative finance convo; worked a 'know it all' seller — took control and made something out of nothing.",link:"https://us06web.zoom.us/rec/share/2JmjohAHSyEsEsUu85OZo62Ttd0EFQBUdRwMH_4mZh5kH0LUkkqDgkTaDma2YUm8.LpXgtysAyHCEz0cm",pw:"A#6v81T?",hv:true},
+  {id:13,date:"2/28",label:"Live calls pt 16",note:"Really solid call. More verbal yeses and good connections.",link:"https://us06web.zoom.us/rec/share/DjT__-aG3RE0k1W8zmE6VRz6Y6UxdCobeTHvoKw76G9s-G_CHkIw3QXLr7xjx6v_.VA6U_BRr2mEHWCW7",pw:"unK#wW0=",hv:false},
+  {id:14,date:"3/11",label:"Live calls pt 20",note:"Verbal yes + heavy training on following up with sellers post-verbal-yes and post-prequalification.",link:"https://us06web.zoom.us/rec/share/tF1rl8vdCvQtHx4EvzmnTv56avM4guotgcfITArEhW5FjdcRsk-N0zmmUylF4mPo.Db_6XlMntrQ6Gjsz",pw:"9^7##qcf",hv:false},
+  {id:15,date:"3/16",label:"Live calls pt 21",note:"Good conversations. Secured a deal with a $40,000 assignment fee with a difficult seller!",link:"https://us06web.zoom.us/rec/share/NZjR7vUM-ONk_VR5asBXNZ0AwmwnnF3yx4oVTDLWJCoc_5e6YHRKdcKe2UTF9U4f.vy_3sfv1US-XhwYL",pw:"s688H@K^",hv:true},
+  {id:16,date:"3/20",label:"Live calls pt 22",note:"Verbal yes on the first seller connected with.",link:"https://us06web.zoom.us/rec/share/06EGP5JZlgOxcMOLeLMbVYQldp7TislLDTLZsoT-c3U-RNE-pNOy0ROdot-ZZiOQ.zbHkXOZ2VG3yn16x",pw:"s688H@K^",hv:false},
+  {id:17,date:"3/23",label:"Live calls pt 23",note:"TWO verbal yeses. Short but efficient!",link:"https://us06web.zoom.us/rec/share/9NaRjxj9_lMuw2Lt8w76SWXRmjV_yYuUXz21XFkrQYa7ynmO7ny7UG2UdymFhCJ1.OyMhw0ik3c35Hz3h",pw:"&lc9w=p6",hv:true},
+  {id:18,date:"3/25",label:"Live calls pt 24",note:"Follow-up lead took MONTHS to reach — turned into being front runners to buy 5-10 of his properties.",link:"https://us06web.zoom.us/rec/share/fTSS1b4-WHwFI4u-_3D-r2ZTGRE7XYDKzpptd7TOkQjcdNFB8LAwvLFxoe8BKWo.UMr5-IeW8mGpSzOX",pw:"7#Qys&y3",hv:true},
+  {id:19,date:"3/30",label:"Live calls pt 25",note:"Difficult getting people on the line, but great learning lessons with difficult sellers. Worth the watch!",link:"https://us06web.zoom.us/rec/share/AR1GeIvLnHOZewGgxZqfa7Sh-yaHlGapMe6FTMZV-_UqoD_AVCegJM3tao5l6CI.IUxZlDzufP0boDwx",pw:"#j0LbXmT",hv:false},
+  {id:20,date:"4/1",label:"Live calls pt 26",note:"Connected to multiple people. 2 verbal yeses — deals should produce over $40,000 in assignment fees!",link:"https://us06web.zoom.us/rec/share/wyRVtKPwGoOqOZsjr0oFLojH6e1DZ4nhYIziP-4agt_Jx4fz8KK0ECOLsV9NawzG.pNRNVI6wJDv5zEQj",pw:"Cz$7*?SM",hv:true},
+  {id:21,date:"4/3",label:"Live calls pt 27",note:"$35k verbal yes, two crazy sellers, and seller who hit back with 100 rebuttals. Best rebuttal training.",link:"https://us06web.zoom.us/rec/share/O_J2fOWj-qFVvpuUe8aGqUOBmNO3ATYVpZbDQw0ujJrSIf-mS426UaRZIb7kWGb0.bD3DRE3nnB2mmY_W",pw:"lE8Ab&G#",hv:true},
+  {id:22,date:"4/6",label:"Live calls pt 28",note:"Super good call. Two new verbal yeses — 3 hour call packed with quality seller conversations.",link:"https://us06web.zoom.us/rec/share/lICXpS9nLBKziWTF_vN5iX_Nxz0y4Jsn2ovp4EUInLMoSMSxQa3_SbFR0Ff-B4rW.anh9HswKWZ5ET4Qz",pw:"+Sh45No+",hv:true},
+  {id:23,date:"4/8",label:"Live calls pt 29",note:"4 verbal yeses from prior convos — reinforcement on getting agreements signed. Quality call!",link:"https://us06web.zoom.us/rec/share/ILCEFZMAPkazfmejaNF-KGxAj3Ghv_KelEvXZ6J9orYEltWOF81Ls7eap6P11P7V.2rA5aKZoB9F0aPTW",pw:"#0xcm&&h",hv:true},
+  {id:24,date:"4/10",label:"Live calls pt 30",note:"Good conversations, followed up with sellers who had a verbal yes but haven't signed yet.",link:"https://us06web.zoom.us/rec/share/FcX-ajEjS-o7Ahky6skREhbtat9B0f9dk_LaQip5T0uEJ4JmSC8I6pd2A4I-4zwF.R8lAKnaznaj3QMTg",pw:"m08mJ+SB",hv:false},
+  {id:25,date:"4/13",label:"Live calls pt 31",note:"'Potential deal' turned hot — estimated $30k assignment fee.",link:"https://us06web.zoom.us/rec/share/1iWQwEBgYj34d3fUYLiKtPRSGCOL284ffWmUiCQ4CpXDUNNqTx90AbK8lhI9P2P5.Wbsalcz7fOuI_RQk",pw:"qO8@0?1N",hv:true},
+  {id:26,date:"4/20",label:"Live calls pt 33",note:"Two verbal yeses. Really good leads — tons of money coming in the next few weeks.",link:"https://us06web.zoom.us/rec/share/rgOiD48Dwl3h1HQtpIbMP7bAZkMCAGUku_3IzKfruZHqMwgu8dyMqIMl9foPh3O9.Fg7aqR523BVyJg9u",pw:"$ctzm45n",hv:false},
+  {id:27,date:"4/22",label:"Live calls pt 34",note:"Two verbal yeses, converted one to a contract next day — projected $15k deal.",link:"https://us06web.zoom.us/rec/share/G-RMovw5Z46-ldkNVdE8k-aNJ6xlbtnJE6xp--OZnRJAw7i7c-hufMpc3A_zhKTO.ys5NwDbmZ7IPVLJ-",pw:"QH2*x=5@",hv:false},
+  {id:28,date:"4/24",label:"Live calls pt 35",note:"Not the best call — dealt with difficult sellers and worked the hottest verbal yeses.",link:"https://us06web.zoom.us/rec/share/8_l-oMQkufygKmh-pxpCVSHu8rVU6j8gHVLpNH_VRQzmMkwP_TJQnGqguHHNn3Tu.2zyqxNFN3g0QFUqb",pw:"nrq.4@#V",hv:false},
+  {id:29,date:"5/1",label:"Live calls pt 37",note:"Multiple connections, interesting situations. Inching closer to signed purchase agreements.",link:"https://us06web.zoom.us/rec/share/pGdqglv5ctXxVAviIOEB8Pr6ypgDOaYO-0y0GJuvL_MG8TfN3_DAybAQDd94in6f.TOfw4drky2Af-vCx",pw:"Z^3@sjEy",hv:false},
+  {id:30,date:"5/3",label:"Live calls pt 38",note:"3 for 3 on connections. Back-to-back 45 min+ calls, tons of rebuttals. TWO verbal yeses!",link:"https://us06web.zoom.us/rec/share/obow5uh2IM8zZivAd2EUq4cZi7zVYMD6yJ2pvOt-fPr8nXRJJ2ZqfhTXS431Z0E4.xBNwUs8MZ_3WwbWa",pw:"7!Z^K41M",hv:true},
+  {id:31,date:"5/6",label:"Live calls pt 39",note:"Most ended in follow-up calls. Talked about systems. Quality call, no verbal yeses.",link:"https://us06web.zoom.us/rec/share/aCNkGZD171sQGBqsoyz9YLLUftVsTp9p3-ULJDr3IQLF2LlfIWsonZR0VEwMXLp_._3vNR6NlBrQE97S7",pw:"*8#3k!1Y",hv:false},
+  {id:32,date:"5/10",label:"Live calls pt 41",note:"VA systems, new features, campaign expectations. One new verbal yes — easy $10k profit.",link:"https://us06web.zoom.us/rec/share/4ObXJfUYaelrxaLIT8rAzoBDPqUUvL0wtc6uhnLxLk8ncgx00lB3dh4KXzg-EqK_.XCV0Nja3eB0JQYur",pw:"HD8sP&+=",hv:false},
+  {id:33,date:"5/13",label:"Live calls pt 42",note:"First lead from new VA system is a highly probable contract — verbal agreement on terms or cash.",link:"https://us06web.zoom.us/rec/share/ZTestMN8JYqMwVYn3zUkN-Q8m5XSe-68WFRprrB8n4wCDsXIBhnuS164wUh3XI_G.9cZ9Qc5BhTgCOIF1",pw:"y.9o#27P",hv:true},
+  {id:34,date:"5/20",label:"Live calls pt 43",note:"Two verbal yeses, very educational. Lots of topics covered — must watch!",link:"https://us06web.zoom.us/rec/share/2kYpqHjw1apaezZQE-x9iMiNdOdRuYqj1c327EEoNtabNQhNtZKetiVCKLm3cLmF.O3GNXRCxC2SDQ2IU",pw:"5=x+Mr9Q",hv:true},
+  {id:35,date:"5/22",label:"Live calls pt 44",note:"No verbal yes, but quality conversations on important topics.",link:"https://us06web.zoom.us/rec/share/SYAw2mjoRjucjCJCKFH6wKKn-_410QJRrMoejBgQoQGt9ey0ew2V7221K68SaqU.C6jGOYddEZbfVAX3",pw:"s*2v9&S=",hv:false},
+  {id:36,date:"5/24",label:"Live calls pt 45",note:"Verbal yes + quality conversations. Worth the listen!",link:"https://us06web.zoom.us/rec/share/QcJn7cNJPvGh6IFbFL9xabufSEaLs7kyPEXPNHbe9dQh2S8ZzmuwnOG57P6DtORm.8HeDBI0wPLAkZNnG",pw:"9nn=#K98",hv:false},
+  {id:37,date:"5/29",label:"Live calls pt 46",note:"Verbal yes — but suspect the seller may be a scammer. Interesting situation.",link:"https://us06web.zoom.us/rec/share/-aef0VP1El-o8QS1Se_wBynpDA0hzAccgJyXCETtpb0XNN8H6eTQgmdZTFAFijOj.tsoDGY4zy67nZh75",pw:"tPBAi5&T",hv:false},
+  {id:38,date:"5/31",label:"Live calls pt 47",note:"Difficult sellers — great example on dealing with non-realistic sellers.",link:"https://us06web.zoom.us/rec/share/prUo_IIz7KOJ3Os_565TmYZGfR3G-rwdYulnFbVf9-IJSAOjngoa5Ef_fc7W-DJ-.fUfy5DBVtz_YPqjk",pw:"$8mTy$Vi",hv:false},
+  {id:39,date:"6/3",label:"Live calls pt 48",note:"Ton of calls scheduled. Good connections and quality conversations.",link:"https://us06web.zoom.us/rec/share/jA9SyMcWZV9btHJlWa5vWndCHDAlNH27mNzyvPWEB6bbQuNQKFpz09Xw0BI6jQcG.VOiNqNkBEUpogjqt",pw:"k$U56N#J",hv:false},
+  {id:40,date:"6/5",label:"Live calls pt 49",note:"Another verbal yes + in-depth important topics. Well worth the listen!",link:"https://us06web.zoom.us/rec/share/N2AO5_Iu4Swg4Cwpe8cEfupisAXjwoqNHbPPK16vNpRwONz4h9cF9L87VrJInvH6.GdezqT8tWUeoMVMI",pw:"7T^5CCqf",hv:false},
+  {id:41,date:"6/10",label:"Live calls pt 51",note:"Multiple conversations.",link:"",pw:"",hv:false},
+  {id:42,date:"6/12",label:"Live calls pt 52",note:"Tons of rebuttals answered, TWO verbal yeses — targeting signed contracts within 48 hours.",link:"https://us06web.zoom.us/rec/share/85O1Ob5Y1IfkzBPw5cq2eHBhDQJodZi8UbvXnhf7C4-PWeEZ3W73VM0Uf9e08hcc.VUrtmWEdXYu8fT3D",pw:"X$Y@2UE7",hv:true},
+  {id:43,date:"6/15",label:"Live calls pt 53",note:"Solid connections. Vital things on handling leads efficiently. One verbal yes.",link:"https://us06web.zoom.us/rec/share/NzH0bHlP5kmgf1B7GaTovzBwEiXl5Mk3-AFAW-Yumgo44Tdp3rZIdGWCK8j_U5v0.EdXQKSDDbIyIhj8v",pw:"v=&9QB^E",hv:false},
+  {id:44,date:"6/17",label:"Live calls pt 54",note:"Connected with everyone called. Unrealistic and coachable sellers. One new verbal yes.",link:"https://us06web.zoom.us/rec/share/tWRjb4LY4TECVaM8ZjgPUO2U-WK0rHsnThYSpRpDhPYGN2aoWWRB6aCL9tILHdYw.eL9zWPHDnaOemENy",pw:"gM6VLA&h",hv:false},
+  {id:45,date:"6/21",label:"Live calls pt 55",note:"Easy, coachable sellers. TWO verbal yeses. Worth the watch.",link:"https://us06web.zoom.us/rec/share/MiYIEQzD058i9Xqhoph2JEl00bic9mOmWofL7x6yUUuGHKYYrgwbyX52Nn1W0bpQ.tY9tTfuWAsevoGqg",pw:"Q?GY*51@",hv:true},
+  {id:46,date:"6/24",label:"Live calls pt 56",note:"Working deals worth hundreds of thousands in assignment fees.",link:"https://us06web.zoom.us/rec/share/s8iuK8AR4nRKKXPtCJtzgSx3xSgrV4YjQQXQt5C1gdoKADI7Lcdkd-WA8TgCx7WY.9jXOkPdZsVQRiN5Z",pw:"K!FLC2TD",hv:true},
+  {id:47,date:"6/26",label:"Live calls pt 57",note:"Shorter call, quality back-and-forth. Update on working leads with me.",link:"https://us06web.zoom.us/rec/share/URC46Vb3986Dl2FaZ9h4fSBv_rSLwkLjTcppHKEMenvIwOov-64PV5YawrQWc5TL.Nl2Wz3wUTrvTc1NF",pw:"w2x20J5&",hv:false},
+  {id:48,date:"7/3",label:"Live calls pt 58",note:"Shorter call — connected right away. New verbal yes despite the holiday weekend.",link:"https://us06web.zoom.us/rec/share/RGCITU7_A_b8LhS9nG2BgNJU11Xi63pW5wNBGGkDKXDSi9z8CTKVLHMzCrDaJ8sl.ncZbJA30KAlT6ibn",pw:"$dt52HB=",hv:false},
+  {id:49,date:"7/10",label:"Live calls pt 59",note:"Solid connectivity, one new verbal yes.",link:"https://us06web.zoom.us/rec/share/2eaEV3QRqIEmieqJWFR-09dHQG-hE9gd5YS60I9Sed5zfZOgqKb14LLSO2Lp4BYh.5p91EhXvwLk1ZzFr",pw:"efRw^5Dq",hv:false},
+  {id:50,date:"7/12",label:"Live calls pt 60",note:"Few conversations, all super quality — realistic sellers. 2.5 verbal yeses. Well worth the listen.",link:"https://us06web.zoom.us/rec/share/IYyK1haHvVccCL3h847Rqznt8eIVHIYF0m3kGQN7T2IBAFS2ddP7XKReAuIiPDO8.Gjy57WfSTFbjG91K",pw:"=a!skw1D",hv:true},
+  {id:51,date:"7/17",label:"Live calls pt 61",note:"Unrealistic sellers put in their place + coachable sellers. Verbal yes converted to signed contract that night!",link:"https://us06web.zoom.us/rec/share/YIiBsz9azA4joKO5ujxFzztT3uQHZNlnfbVoVBFYD3TYVp3sQKw8htZgMYO8bKPR.HR8lf_X02UbOqc5q",pw:"NABP7d&b",hv:true},
+  {id:52,date:"7/23",label:"Live calls pt 62",note:"90% had to reschedule, but every lead discussed was a guaranteed deal. Great deal breakdown call.",link:"https://us06web.zoom.us/rec/share/g5HZkxqTz7HdQkxBOPSK0sI-yfX7XCG_w8wkpPueZlAtugu73nps36GE-5ZxThAJ.eAAZAFtwojU4p-50",pw:"y.F0z6A&",hv:false},
+  {id:53,date:"7/26",label:"Live calls pt 63",note:"Shorter call, quality conversations. Verbal yes ready to sign a contract tonight!",link:"https://us06web.zoom.us/rec/share/_UzojuxbFaEjD38thPOBmZj-RuI_yNZKMDq9Hj7_1xOhjwkAv5u8wuwvOPskAXro.TsIKwz0fEprkPhHi",pw:"sPC&yt#5",hv:false},
+  {id:54,date:"8/7",label:"Live calls pt 64",note:"Lengthy important conversations + live comping on Zillow. One verbal yes — contract signed tomorrow.",link:"https://us06web.zoom.us/rec/share/JwozdkrGiwWHv1geYaDH6vcLLGJZ26nHDV_4uqeqiQ6-IfPDmx6uEkJwlQGjS8Us.Csl9Y7OK_wwrp-hD",pw:"gL208#6X",hv:false},
+  {id:55,date:"8/9",label:"Live calls pt 65",note:"Connected with everyone but most rescheduled. Very informative deal breakdowns and comping.",link:"https://us06web.zoom.us/rec/share/037eFpD3PvV1PbigMTgjtW3TqwJ-gPNUsfUDvXlG2vJ1KQmH_9pXyzqKW39-nhZs.0Z85dvjSw6rhtFZ-",pw:"1gv^X5rN",hv:false},
+  {id:56,date:"8/23",label:"Live calls pt 66",note:"Getting on the phone, comping, hard sellers. Watch me work a 'my way or no way' seller. Worth the listen!",link:"https://us06web.zoom.us/rec/share/ZXRkE8NZSfnA-vJw2mIyRm0vb_NHz3pFRud4Mp2fyGW_hN7BvHjrxZ3h1X7kf48y.j7gr7QYcEs5_GSIR",pw:"Nz&Rkrn6",hv:true},
+  {id:57,date:"9/6",label:"Buyers/Disposition — cold calling realtors",note:"Live cold calling realtors to generate cash buyers. How to build a buyers list in any US city within minutes.",link:"https://us06web.zoom.us/rec/share/BsJukycMrVdcniU8MLjh04GZtvEBHJcuOwuy_Z-wktt1iDDQnzAaIZY9pP3Elulo.WXieP0Ja58hHk8Po",pw:"V!pD3snp",hv:true},
+  {id:58,date:"9/11",label:"Live calls pt 68",note:"Live seller calls, cold calling buyer agents, key things for success in marketing campaigns. Must listen.",link:"https://us06web.zoom.us/rec/share/4dZG_24yUgC7LNY4AjSu6wWxDqjJLrhimz6drmwpvLkk5u6_fgHoK0vg6__yx1Ev.OO5-R3n3HhsSfNKO",pw:"c!nX5$tL",hv:true},
+  {id:59,date:"9/13",label:"Live calls pt 69",note:"Buyers, comping fast, offer breakdowns, training content updates.",link:"https://us06web.zoom.us/rec/share/zvx6EKXcJvSIJGIxJWPE-zud1r_mbpdDINV8XZxUJyQ2x-ZkPZx_C4ZZwO6DH9Vz.6V7kdoSEo-lTLh8y?startTime=1726268791000",pw:"!kP85bVL",hv:false},
+  {id:60,date:"9/18",label:"Live calls pt 70",note:"Multiple deal breakdowns, campaign updates. Strong ARV/deal breakdown value.",link:"https://us06web.zoom.us/rec/share/zMNLkK2rGYm3BAAFe5biQtxffG-FKy9R5crqYCq0laquHVmcXtdeMiggAf7ICW0o.RxD8pXNYoN4CQGo3?startTime=1726698869000",pw:"CK@3eC=!",hv:false},
+  {id:61,date:"9/23",label:"Live calls pt 71",note:"Live comping, Google Calendar setup, training submission form. Quick call — worth the listen.",link:"https://us06web.zoom.us/rec/share/kVibrFvJO2ztLTehowin350A6QkiO3FJHB9N8VgkEMgRrgEKV6UPTrVIja0nXZgV.66AQ6uKha8vsgsmc",pw:"8H.h9LQ=",hv:false},
+  {id:62,date:"9/25",label:"Live calls pt 72",note:"In-depth live call turned verbal yes. New leads submitted for Friday — back in full swing.",link:"https://us06web.zoom.us/rec/share/mw_pSPWXgwthu3JjM1wDoRMahop-jMDivLQki5Id-jH6hhdQ69oPD-zW9Kx7OzUo.lqvEGk50UgjvI2-0",pw:"G^OpJQ40",hv:false},
+  {id:63,date:"9/27",label:"Live calls pt 73",note:"More comping, new and old sellers. One verbal yes — potential 30k+ deal!",link:"https://us06web.zoom.us/rec/share/yw6b95P-K_oWFNIow1GE1u-sFTOAxN1fLRioBQzmfAIT6JIAEV1iiAIex39gqyzO.KwOs-vFYqK6TNzLh",pw:"D7#je+@5",hv:true},
+  {id:64,date:"9/30",label:"Terms deal breakdown — start to finish",note:"30-minute terms deal breakdown. Want to understand how to structure a terms deal? Watch this.",link:"https://us06web.zoom.us/rec/share/dihJ6RFzmklRiHEi5Glhcv4fvGtXlpmNx5bBGq7Ha-DDvA8qkEhsRfA1VngELh74.F06KSq8EAQga3-M2",pw:"3^6.R8XV",hv:true},
+  {id:65,date:"10/18",label:"Live calls pt 75",note:"Terms offer with the most direct sellers imaginable — would have hung up on 99% of people.",link:"https://us06web.zoom.us/rec/share/3-gnKBNziNG7UyMiUamaPphInvWQkSrYnxNSymrISc6cQGcBO3lELYFK0RGO4jPh.DT0kWxpyjRlBun5i",pw:"m9G%smZh",hv:true},
+  {id:66,date:"10/28",label:"Live calls pt 76",note:"Coachable sellers — one shut out every wholesaler except us. Verbal yes turning into a contract this week!",link:"https://us06web.zoom.us/rec/share/YFiCq1MuEbv2l2ZmXADLScnrzmgnhJu_6muYEgbhcGgtyVCt1j1okNlOkhkknrQs.ODMgtRCGgxV76NiA?startTime=1730155779000",pw:"J3UA%?vi",hv:false},
+  {id:67,date:"11/25",label:"Live calls pt 77",note:"Good call, a few sellers. One verbal yes — converting to a deal by the weekend!",link:"https://us06web.zoom.us/rec/share/g8nLJkDx3EAYkz1O79NUx5BLH8Nq0XahJ_PlLRVLvlR50r52waHAXyrmtKffK1Pj.uwF3aRPCFJjyaT2B",pw:"&1.aCZ+T",hv:false},
+  {id:68,date:"3/29",label:"Live calls — BACK pt 1",note:"Live calls back! Verbal yes situation — tune in Monday to see it secured. Well worth the listen.",link:"https://us06web.zoom.us/rec/share/_43jOGObrFWuHka4LsGnucP3k8Wvd5mtvqxYuNWSPlwYcWL5zM5TqBmD5KxCvznk.e1XOXsC1k18yZrgG?startTime=1743273283000",pw:"",hv:true},
+  {id:69,date:"4/4",label:"Live calls — BACK pt 2",note:"Solid 90 min call. Verbal yes — expecting to sign within the week. Potential 15k deal!",link:"https://us06web.zoom.us/rec/share/jOkFVMviUWRfDznFJ0YoRGBAWSRCjKBpOuQq5z9stm63WpyjweJrx8OXQuPgfbH7.HdWuIoeASrnT2-lI",pw:"",hv:true},
+  {id:70,date:"4/9",label:"Live calls — BACK pt 3",note:"No conversations, but crazy detail on the steps BEFORE an offer call + day-to-day insights. Worth the listen.",link:"https://us06web.zoom.us/rec/share/NzlAPh7MQIoSrk_QTeFYvfpkZz7a1Yk1tfb57bW2amM_GKKf2GepbCFSQ3oFUkS-.EQAuu-VLblJROTxg",pw:"",hv:true},
+  {id:71,date:"5/9",label:"Mini training — repair estimates & offer positioning",note:"Repair estimates virtual + positioning all 3 offer options (creative finance, novation, cash).",link:"https://us06web.zoom.us/rec/share/9LxsT8PKMJVqOLzU7Q_MQUz7lia0WVl6fpTLQfM4OgzM-OBdlC-lAoek4keTPQGK.MkZGj7QBqOuoW7QQ",pw:"",hv:true},
+];
+
+const LS_URL_KEY = 'atlas_script_url';
+const LS_CACHE_KEY = 'atlas_calls_cache';
+
+let scriptUrl = localStorage.getItem(LS_URL_KEY) || '';
+let completed = new Set();
+let notes = {};
+let openCards = new Set();
+let currentFilter = 'unlistened';
+let saveTimer = null;
+
+function saveScriptUrl() {
+  const val = document.getElementById('script-url-input').value.trim();
+  if (!val.startsWith('https://script.google.com')) { setStatus('Does not look like an Apps Script URL.', true); return; }
+  scriptUrl = val;
+  localStorage.setItem(LS_URL_KEY, scriptUrl);
+  document.getElementById('setup-banner').classList.add('hidden');
+  setStatus('Connecting...', false);
+  loadFromSheet();
+}
+function dismissBanner() {
+  document.getElementById('setup-banner').classList.add('hidden');
+  loadFromCache(); render();
+}
+function setStatus(msg, isErr) {
+  const el = document.getElementById('sync-status');
+  el.textContent = msg;
+  el.className = 'sync-status' + (isErr ? ' err' : (msg.startsWith('Synced') ? ' ok' : ''));
+}
+
+async function loadFromSheet() {
+  if (!scriptUrl) { loadFromCache(); render(); return; }
+  try {
+    const res = await fetch(scriptUrl + '?action=get');
+    const data = await res.json();
+    completed = new Set(data.completed || []);
+    notes = data.notes || {};
+    saveCache();
+    setStatus('Synced ' + new Date().toLocaleTimeString(), false);
+  } catch(e) {
+    setStatus('Could not reach sheet — showing cached data', true);
+    loadFromCache();
+  }
+  render();
+}
+async function saveToSheet() {
+  if (!scriptUrl) { saveCache(); return; }
+  saveCache();
+  try {
+    await fetch(scriptUrl + '?action=set', {
+      method: 'POST',
+      body: JSON.stringify({ completed: [...completed], notes }),
+      headers: { 'Content-Type': 'text/plain' }
+    });
+    setStatus('Synced ' + new Date().toLocaleTimeString(), false);
+  } catch(e) {
+    setStatus('Saved locally (sheet unreachable)', true);
+  }
+}
+function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(saveToSheet, 1200); }
+
+function saveCache() { localStorage.setItem(LS_CACHE_KEY, JSON.stringify({ completed: [...completed], notes })); }
+function loadFromCache() {
+  try { const d = JSON.parse(localStorage.getItem(LS_CACHE_KEY)||'{}'); completed = new Set(d.completed||[]); notes = d.notes||{}; } catch(e) {}
+}
+
+function toggleDone(id, e) {
+  e.stopPropagation();
+  if (completed.has(id)) completed.delete(id); else { completed.add(id); openCards.delete(id); }
+  scheduleSave(); updateStats(); render();
+}
+function toggleOpen(id) { if (openCards.has(id)) openCards.delete(id); else openCards.add(id); render(); }
+function setFilter(f) { currentFilter = f; render(); }
+
+function filteredCalls() {
+  if (currentFilter==='unlistened') return CALLS.filter(c=>!completed.has(c.id));
+  if (currentFilter==='high') return CALLS.filter(c=>c.hv);
+  if (currentFilter==='done') return CALLS.filter(c=>completed.has(c.id));
+  return CALLS;
+}
+function getCounts() {
+  return { all:CALLS.length, unlistened:CALLS.filter(c=>!completed.has(c.id)).length, high:CALLS.filter(c=>c.hv).length, done:completed.size };
+}
+function updateStats() {
+  const done=completed.size, total=CALLS.length;
+  document.getElementById('stat-done').textContent=done;
+  document.getElementById('stat-total').textContent=total;
+  document.getElementById('prog').style.width=(total?Math.round(done/total*100):0)+'%';
+}
+function renderFilters() {
+  const c=getCounts();
+  const fs=[{key:'unlistened',label:'Unlistened'},{key:'all',label:'All'},{key:'high',label:'High value'},{key:'done',label:'Reviewed'}];
+  document.getElementById('filters').innerHTML=fs.map(f=>
+    `<button class="filter-btn${currentFilter===f.key?' active':''}" onclick="setFilter('${f.key}')">${f.label}<span class="count-badge">${c[f.key]}</span></button>`
+  ).join('');
+}
+function render() {
+  renderFilters(); updateStats();
+  const calls=filteredCalls(), container=document.getElementById('cards');
+  if (!calls.length) { container.innerHTML='<div class="empty">No calls in this view.</div>'; return; }
+  container.innerHTML=calls.map(c=>{
+    const done=completed.has(c.id), open=openCards.has(c.id), nv=(notes[c.id]||'').replace(/"/g,'&quot;');
+    return `<div class="card${done?' done':''}${c.hv?' high-value':''}">
+      <div class="card-header" onclick="toggleOpen(${c.id})">
+        <div class="check${done?' done':''}" onclick="toggleDone(${c.id},event)"></div>
+        <div class="card-body">
+          <div class="card-date">${c.date} &mdash; ${c.label}${c.hv?'<span class="hv-pill">high value</span>':''}</div>
+          <div class="card-note">${c.note}</div>
+          <div class="card-links">
+            ${c.link?`<a class="open-link" href="${c.link}" onclick="event.stopPropagation()" target="_blank">Open recording</a>`:'<span style="font-size:12px;color:var(--text-faint)">No link</span>'}
+            ${c.pw?`<span class="pw">${c.pw}</span>`:''}
+          </div>
+        </div>
+        <div class="expand-arrow${open?' open':''}">&#9660;</div>
+      </div>
+      ${open?`<div class="notes-panel"><div class="notes-lbl">Notes</div>
+        <textarea placeholder="Your notes from this call..." onchange="notes[${c.id}]=this.value;scheduleSave()" onclick="event.stopPropagation()">${nv}</textarea>
+      </div>`:''}
+    </div>`;
+  }).join('');
+}
+
+if (scriptUrl) {
+  document.getElementById('setup-banner').classList.add('hidden');
+  setStatus('Loading from sheet...', false);
+  loadFromSheet();
+} else {
+  loadFromCache(); render();
+}
+</script>
+
+<!--
+=================================================================
+  GOOGLE SHEETS SYNC SETUP  —  one time, ~5 minutes
+=================================================================
+
+STEP 1 — Create a Google Sheet
+  Go to sheets.google.com, create a new blank sheet.
+  Copy the Sheet ID from the URL:
+  https://docs.google.com/spreadsheets/d/ >>> SHEET_ID_HERE <<< /edit
+
+STEP 2 — Open Apps Script
+  In your sheet: Extensions menu → Apps Script
+  Delete any existing code, paste everything below the dashes.
+
+- - - - - PASTE THIS INTO APPS SCRIPT - - - - -
+
+const SHEET_ID = 'YOUR_SHEET_ID_HERE';
+
+function doGet(e) {
+  if (e.parameter.action === 'get') {
+    const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName('data');
+    if (!sheet || sheet.getLastRow() === 0) return json({completed:[], notes:{}});
+    const raw = sheet.getRange(1,1).getValue();
+    return json(raw ? JSON.parse(raw) : {completed:[], notes:{}});
+  }
+  return json({error:'unknown'});
+}
+
+function doPost(e) {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  let sheet = ss.getSheetByName('data');
+  if (!sheet) sheet = ss.insertSheet('data');
+  sheet.getRange(1,1).setValue(e.postData.contents);
+  return json({ok:true});
+}
+
+function json(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+- - - - - END PASTE - - - - -
+
+STEP 3 — Deploy
+  Click Deploy → New deployment
+  Type: Web app
+  Execute as: Me
+  Who has access: Anyone
+  Click Deploy → copy the Web App URL
+
+STEP 4 — Connect
+  Open call-tracker.html in your browser
+  Paste the Web App URL into the yellow banner
+  Click Connect — done!
+
+On any other computer: open the file, paste the same URL, connect.
+Your progress and notes sync instantly across all devices.
+
+TO FIND YOUR URL LATER:
+  Apps Script → Deploy → Manage deployments
+=================================================================
+-->
+</body>
+</html>
